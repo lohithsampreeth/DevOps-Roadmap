@@ -2,7 +2,7 @@
 
 # 🚀 DevOps Project 03 — Java CI/CD with Jenkins + OpenShift
 
-![Build](https://img.shields.io/github.com/lohithsampreeth/DevOps-Roadmap/blob/main/DevOps-Project-03/.github/workflows/project-03-ci.yml?branch=main&label=CI%2FCD&logo=githubactions&logoColor=white)
+
 ![Java](https://img.shields.io/badge/Java-17-orange?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2-green?logo=springboot&logoColor=white)
 ![Jenkins](https://img.shields.io/badge/Jenkins-Pipeline-red?logo=jenkins&logoColor=white)
