@@ -2,7 +2,7 @@
 
 # 🚀 DevOps CI/CD Pipeline Project
 
-![CI/CD](https://img.shields.io/github/actions/workflow/status/lohithsampreeth/DevOps-Roadmap/DevOps-Project-02/.github/workflows/ci.yml?label=CI%2FCD&logo=githubactions&logoColor=white)
+
 ![Docker](https://img.shields.io/badge/Docker-24.x-blue?logo=docker&logoColor=white)
 ![Terraform](https://img.shields.io/badge/Terraform-1.7.x-purple?logo=terraform&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-1.29-326CE5?logo=kubernetes&logoColor=white)
@@ -51,7 +51,7 @@ This project demonstrates a production-ready DevOps workflow with:
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -234,7 +234,7 @@ docker-compose -f docker/docker-compose.yml down -v
 
 ---
 
-## 🏗️ Terraform Infrastructure
+##  Terraform Infrastructure
 
 ```bash
 cd terraform/
@@ -426,23 +426,6 @@ kubectl top pods -n devops-app
 
 ---
 
-## 🤝 Contributing
-
-```bash
-# 1. Fork the repo and clone
-git clone https://github.com/yourusername/devops-cicd-project.git
-
-# 2. Create feature branch
-git checkout -b feature/add-alertmanager
-
-# 3. Make changes and commit (conventional commits)
-git commit -m "feat: add Alertmanager for Prometheus alerts"
-
-# 4. Push and open Pull Request
-git push origin feature/add-alertmanager
-```
-
----
 
 ## 📜 License
 
