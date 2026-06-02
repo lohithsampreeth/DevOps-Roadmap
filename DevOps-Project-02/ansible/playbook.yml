@@ -1,0 +1,115 @@
+---
+# ==============================================
+# Ansible Playbook - Server Setup & Configuration
+# Installs Docker, kubectl, monitoring agents
+# ==============================================
+
+- name: Setup DevOps Server
+  hosts: all
+  become: true
+  vars:
+    docker_version: "24.0"
+    kubectl_version: "1.29.0"
+    node_exporter_version: "1.7.0"
+
+  tasks:
+
+    # ---------- System Update ----------
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install base packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - unzip
+          - htop
+          - net-tools
+          - vim
+        state: present
+
+    # ---------- Docker ----------
+    - name: Install Docker
+      shell: curl -fsSL https://get.docker.com | sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    # ---------- kubectl ----------
+    - name: Install kubectl
+      shell: |
+        curl -LO "https://dl.k8s.io/release/v{{ kubectl_version }}/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        mv kubectl /usr/local/bin/kubectl
+      args:
+        creates: /usr/local/bin/kubectl
+
+    # ---------- AWS CLI ----------
+    - name: Install AWS CLI v2
+      shell: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        ./aws/install
+        rm -rf awscliv2.zip aws/
+      args:
+        creates: /usr/local/bin/aws
+
+    # ---------- Node Exporter (Prometheus) ----------
+    - name: Install Node Exporter
+      shell: |
+        wget https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+        tar xvf node_exporter-*.tar.gz
+        mv node_exporter-*/node_exporter /usr/local/bin/
+        rm -rf node_exporter-*
+      args:
+        creates: /usr/local/bin/node_exporter
+
+    - name: Create node_exporter systemd service
+      copy:
+        dest: /etc/systemd/system/node_exporter.service
+        content: |
+          [Unit]
+          Description=Node Exporter
+          After=network.target
+
+          [Service]
+          User=nobody
+          ExecStart=/usr/local/bin/node_exporter
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Start node_exporter
+      systemd:
+        name: node_exporter
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    # ---------- Monitor cron job ----------
+    - name: Copy monitor script
+      copy:
+        src: ../scripts/monitor.sh
+        dest: /usr/local/bin/monitor.sh
+        mode: '0755'
+
+    - name: Schedule monitor every 5 minutes
+      cron:
+        name: "Server health monitor"
+        minute: "*/5"
+        job: "/usr/local/bin/monitor.sh >> /var/log/devops-monitor.log 2>&1"

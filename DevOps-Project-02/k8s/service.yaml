@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-service
+  namespace: devops-app
+  labels:
+    app: myapp
+spec:
+  type: ClusterIP    # Use LoadBalancer for direct AWS ELB
+  selector:
+    app: myapp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
