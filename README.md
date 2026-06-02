@@ -96,7 +96,15 @@ Passionate DevOps Engineer with hands-on experience in:
 
 
 ```
-[![DevOps roadmap](devops.png)
+<h2 align="center">🛠️ DevOps Tools Ecosystem</h2>
+
+<p align="center">
+  <img src="devops.png" alt="DevOps Roadmap" width="1000">
+</p>
+
+## 🛠️ DevOps Tools Ecosystem
+
+![DevOps Roadmap](devops.png)
 ```
 
 
