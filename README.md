@@ -96,31 +96,7 @@ Passionate DevOps Engineer with hands-on experience in:
 
 ---
 
-# 📁 Repository Structure
 
-```text
-DevOps-Projects/
-│
-├── DevOps-Project-01/
-│   ├── terraform/
-│   ├── kubernetes/
-│   ├── github-actions/
-│   └── README.md
-│
-├── DevOps-Project-02/
-│   ├── terraform/
-│   ├── eks/
-│   ├── ecr/
-│   └── README.md
-│
-├── DevOps-Project-03/
-│   ├── jenkins/
-│   ├── openshift/
-│   ├── maven/
-│   └── README.md
-│
-└── README.md
-```
 
 ---
 
