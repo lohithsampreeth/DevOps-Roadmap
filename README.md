@@ -97,9 +97,6 @@ Passionate DevOps Engineer with hands-on experience in:
 ---
 
 
-
----
-
 # 📈 Key DevOps Skills Demonstrated
 
 ✅ Infrastructure as Code (Terraform)
