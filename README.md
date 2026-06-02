@@ -56,13 +56,13 @@ Passionate DevOps Engineer with hands-on experience in:
 ### Cloud Platforms
 
 * AWS
-* Azure (Learning)
+* Azure 
 * OpenShift
 
 ### Infrastructure as Code
 
 * Terraform
-* CloudFormation (Basic)
+* CloudFormation 
 
 ### Containers & Orchestration
 
@@ -88,6 +88,7 @@ Passionate DevOps Engineer with hands-on experience in:
 
 * Git
 * GitHub
+* GitLab
 
 ### Scripting
 
