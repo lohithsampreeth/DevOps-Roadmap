@@ -2,7 +2,7 @@
 
 # 🚀 DevOps CI/CD Pipeline Project
 
-![CI/CD](https://img.shields.io/github/actions/workflow/status/yourusername/devops-cicd-project/ci.yml?label=CI%2FCD&logo=githubactions&logoColor=white)
+![CI/CD](https://img.shields.io/github/actions/workflow/status/lohithsampreeth/DevOps-Project-02/.github/workflows/ci.yml?label=CI%2FCD&logo=githubactions&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-24.x-blue?logo=docker&logoColor=white)
 ![Terraform](https://img.shields.io/badge/Terraform-1.7.x-purple?logo=terraform&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-1.29-326CE5?logo=kubernetes&logoColor=white)
@@ -446,7 +446,7 @@ git push origin feature/add-alertmanager
 
 ## 📜 License
 
-MIT © [Your Name](https://github.com/yourusername)
+MIT © [lohithsampreeth](https://github.com/lohithsampreeth)
 
 ---
 
