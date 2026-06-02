@@ -96,10 +96,12 @@ Passionate DevOps Engineer with hands-on experience in:
 
 
 ```
-<img width="1055" height="1491" alt="4682823d-c31e-4c08-b9ed-26d0b3daa5b6" src="https://github.com/user-attachments/assets/d73142b9-3038-4fab-9826-9f74767db077" />
+<img width="1055" height="1491" alt="4682823d-c31e-4c08-b9ed-26d0b3daa5b6" src="https://github.com/user-attachments/assets/8b816cfe-a258-4899-afc6-575a62a0d55f" />
 
 
----
+
+
+```
 
 # 📈 Key DevOps Skills Demonstrated
 
