@@ -99,7 +99,7 @@ Passionate DevOps Engineer with hands-on experience in:
 ## 🛠️ DevOps Tools Ecosystem
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/8b816cfe-a258-4899-afc6-575a62a0d55f" alt="DevOps Tools" width="1000"/>
+  <img src="https://github.com/user-attachments/assets/eb36f12a-9c5d-4c84-a507-bbc37c5dd0e6.png" alt="DevOps Tools" width="1000"/>
 </p>
 
 
