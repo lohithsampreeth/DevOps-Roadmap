@@ -1,159 +1,150 @@
-## 🛠️ DevOps Tools & Technologies
+# 🚀 DevOps Projects Portfolio
 
-### ☁️ Cloud Platforms
+Welcome to my DevOps Projects Repository. This repository contains production-ready DevOps projects focused on CI/CD automation, Kubernetes orchestration, Infrastructure as Code (IaC), Cloud Native deployments, and Monitoring solutions.
 
-* AWS (EKS, ECR, EC2, IAM, S3, VPC, CloudWatch)
-* OpenShift
+---
+
+## 👨‍💻 About Me
+
+Passionate DevOps Engineer with hands-on experience in:
+
+* CI/CD Automation
+* Kubernetes Administration
+* AWS Cloud Infrastructure
+* Infrastructure as Code (Terraform)
+* Containerization (Docker)
+* Monitoring & Observability
+* GitOps and DevSecOps Practices
+
+---
+
+# 📊 Complete Projects Overview
+
+| #  | Project Title                       | Tools & Technologies                                            | Description                                                                          |
+| -- | ----------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 01 | Automated CI/CD Pipeline on AWS EKS | GitHub Actions, Docker, Terraform, AWS EKS, Prometheus, Grafana | End-to-end production-grade CI/CD pipeline with Kubernetes deployment and monitoring |
+| 02 | Automated CI/CD via GitHub Actions  | Terraform, AWS EKS, AWS ECR, VPC, S3, IAM                       | Infrastructure provisioning and automated Kubernetes deployments on AWS              |
+| 03 | Java CI/CD with Jenkins & OpenShift | Jenkins, OpenShift, Maven, Docker, Git                          | Enterprise Java application CI/CD pipeline with automated deployment                 |
+
+---
+
+# ☸️ Kubernetes Tools & Usage
+
+| Tool             | Purpose                                         |
+| ---------------- | ----------------------------------------------- |
+| Kubernetes (K8s) | Container orchestration platform                |
+| kubectl          | Kubernetes command-line management              |
+| EKS              | Managed Kubernetes on AWS                       |
+| OpenShift        | Enterprise Kubernetes platform                  |
+| Helm             | Kubernetes package manager                      |
+| Kustomize        | Kubernetes configuration customization          |
+| Metrics Server   | Resource utilization monitoring                 |
+| Prometheus       | Metrics collection and monitoring               |
+| Grafana          | Dashboard and visualization                     |
+| ArgoCD           | GitOps continuous delivery                      |
+| Ingress NGINX    | Traffic routing and load balancing              |
+| Cert Manager     | SSL/TLS certificate automation                  |
+| External DNS     | DNS automation for Kubernetes services          |
+| Velero           | Backup and disaster recovery                    |
+| Fluent Bit       | Log collection and forwarding                   |
+| EFK Stack        | Elasticsearch, Fluentd, Kibana logging solution |
+
+---
+
+# 🛠️ DevOps Tech Stack
+
+### Cloud Platforms
+
+* AWS
 * Azure (Learning)
+* OpenShift
 
-### 📦 Containerization
+### Infrastructure as Code
+
+* Terraform
+* CloudFormation (Basic)
+
+### Containers & Orchestration
 
 * Docker
-* Docker Compose
-* Podman
-
-### ☸️ Kubernetes Ecosystem
-
-* Kubernetes (K8s)
-* Amazon EKS
+* Kubernetes
+* EKS
 * OpenShift
-* kubectl
 * Helm
-* Kustomize
-* Ingress NGINX
-* Metrics Server
-* Kubernetes Dashboard
-* Cert Manager
-* External DNS
-* Velero
 
-### 🚀 CI/CD Tools
+### CI/CD Tools
 
 * GitHub Actions
 * Jenkins
 * GitLab CI/CD
-* ArgoCD
-* Tekton Pipelines
 
-### 🏗️ Infrastructure as Code
-
-* Terraform
-* AWS CloudFormation
-* Ansible
-* Vagrant
-
-### 📁 Source Code Management
-
-* Git
-* GitHub
-* GitLab
-* Bitbucket
-
-### 🔍 Monitoring & Observability
+### Monitoring & Observability
 
 * Prometheus
 * Grafana
 * AlertManager
-* Loki
-* ELK Stack
-* Fluent Bit
-* Jaeger
 
-### 🔐 DevSecOps & Security
+### Version Control
 
-* SonarQube
-* Trivy
-* Snyk
-* Falco
-* OWASP Dependency Check
-* HashiCorp Vault
+* Git
+* GitHub
 
-### 📦 Artifact & Package Management
-
-* Docker Hub
-* AWS ECR
-* JFrog Artifactory
-* Nexus Repository
-
-### 💻 Scripting & Automation
+### Scripting
 
 * Bash
 * Python
-* Shell Scripting
 
----
 
-## 🔗 DevOps Workflow & Connectivity
-
-```text
-Developer
-    │
-    ▼
-GitHub Repository
-    │
-    ▼
-GitHub Actions / Jenkins Pipeline
-    │
-    ├── Code Quality Scan (SonarQube)
-    ├── Security Scan (Trivy/Snyk)
-    ├── Unit Tests
-    └── Docker Image Build
-            │
-            ▼
-        AWS ECR
-            │
-            ▼
-Terraform Infrastructure Deployment
-            │
-            ▼
-Amazon EKS Cluster
-            │
-            ├── Deployments
-            ├── Services
-            ├── Ingress
-            └── ConfigMaps / Secrets
-                    │
-                    ▼
-        Monitoring Stack
-      (Prometheus + Grafana)
-                    │
-                    ▼
-              AlertManager
-                    │
-                    ▼
-              Slack / Email
 ```
+<img width="1055" height="1491" alt="4682823d-c31e-4c08-b9ed-26d0b3daa5b6" src="https://github.com/user-attachments/assets/d73142b9-3038-4fab-9826-9f74767db077" />
+
 
 ---
 
-## 🏆 Key DevOps Skills Demonstrated
+# 📈 Key DevOps Skills Demonstrated
 
-* CI/CD Pipeline Automation
-* Infrastructure as Code (Terraform)
-* Kubernetes Administration
-* Container Orchestration
-* AWS Cloud Architecture
-* Monitoring & Observability
-* GitOps Principles
-* DevSecOps Practices
-* Production Deployment Strategies
-* Blue-Green Deployment
-* Rolling Updates
-* Kubernetes Troubleshooting
-* High Availability Architecture
-* Disaster Recovery & Backup
-* Infrastructure Monitoring
-* Log Aggregation & Analysis
+✅ Infrastructure as Code (Terraform)
+
+✅ Kubernetes Cluster Management
+
+✅ AWS Cloud Services
+
+✅ Docker Containerization
+
+✅ GitHub Actions Automation
+
+✅ Jenkins Pipelines
+
+✅ OpenShift Administration
+
+✅ Monitoring & Alerting
+
+✅ GitOps Concepts
+
+✅ Production Deployment Strategies
+
+✅ Blue-Green Deployments
+
+✅ Rolling Updates
+
+✅ Kubernetes Troubleshooting
 
 ---
 
-## 🚀 Future Enhancements
+# 🎯 Future Projects
 
-* Multi-Cluster Kubernetes Management
 * ArgoCD GitOps Implementation
-* Service Mesh with Istio
-* DevSecOps End-to-End Pipeline
+* EKS Multi-Environment Setup
+* Kubernetes Security Scanning
+* DevSecOps Pipeline
+* Istio Service Mesh
 * Kubernetes Cost Optimization
-* Automated Disaster Recovery
-* Kubernetes Policy Management (OPA/Kyverno)
-* Platform Engineering Concepts
+* Multi-Cluster Kubernetes Management
+
+---
+
+## ⭐ Support
+
+If you find these projects useful, feel free to star the repository and connect with me.
+
+Happy Learning & Automating! 🚀
