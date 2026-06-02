@@ -1,0 +1,414 @@
+// =======================================================
+// DevOps Project 03 - End-to-End Jenkins Pipeline
+// Java Spring Boot → Docker → OpenShift
+//
+// Tools: Maven, SonarQube, Trivy, TruffleHog, Docker, OpenShift
+// =======================================================
+
+pipeline {
+
+    agent any
+
+    // ── Tool versions defined in Jenkins Global Tool Config ──
+    tools {
+        maven 'Maven-3.9'
+        jdk   'JDK-17'
+    }
+
+    // ── Pipeline-wide environment variables ──────────────────
+    environment {
+        // App
+        APP_NAME        = 'devops-java-app'
+        APP_VERSION     = '1.0.0'
+
+        // Docker
+        DOCKER_REGISTRY = 'your-registry.io'                        // e.g. docker.io/yourusername
+        IMAGE_NAME      = "${DOCKER_REGISTRY}/${APP_NAME}"
+        IMAGE_TAG       = "${APP_VERSION}-${BUILD_NUMBER}"
+        IMAGE_LATEST    = "${IMAGE_NAME}:latest"
+        IMAGE_TAGGED    = "${IMAGE_NAME}:${IMAGE_TAG}"
+
+        // SonarQube (matches Jenkins SonarQube server name)
+        SONAR_SERVER    = 'SonarQube-Server'
+        SONAR_PROJECT   = 'devops-java-app'
+
+        // OpenShift
+        OCP_SERVER      = 'https://api.your-openshift-cluster.com:6443'
+        OCP_PROJECT     = 'devops-project-03'
+        OCP_APP_NAME    = 'devops-java-app'
+
+        // Jenkins credential IDs (set these in Jenkins → Credentials)
+        DOCKER_CREDS    = 'docker-registry-credentials'
+        SONAR_TOKEN     = 'sonarqube-token'
+        OCP_TOKEN       = 'openshift-service-account-token'
+    }
+
+    // ── Build options ─────────────────────────────────────────
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 45, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        timestamps()
+    }
+
+    // ── Trigger: poll SCM every 5 mins OR GitHub webhook ─────
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+
+    // ==========================================================
+    // STAGES
+    // ==========================================================
+    stages {
+
+        // ── Stage 1: Checkout ──────────────────────────────────
+        stage('Checkout') {
+            steps {
+                echo '📥 Checking out source code...'
+                checkout scm
+                sh 'git log --oneline -5'
+                sh 'echo "Branch: ${GIT_BRANCH}"'
+                sh 'echo "Commit: ${GIT_COMMIT}"'
+            }
+        }
+
+        // ── Stage 2: TruffleHog - Secret Scanning ─────────────
+        stage('Secret Scan - TruffleHog') {
+            steps {
+                echo '🔍 Scanning for secrets and credentials with TruffleHog...'
+                sh '''
+                    # Run TruffleHog via Docker
+                    docker run --rm \
+                        -v "$WORKSPACE:/repo" \
+                        trufflesecurity/trufflehog:latest \
+                        filesystem /repo \
+                        --only-verified \
+                        --fail \
+                        --json > trufflehog-report.json || true
+
+                    # Check if secrets were found
+                    if [ -s trufflehog-report.json ]; then
+                        echo "❌ TruffleHog found secrets! Check trufflehog-report.json"
+                        cat trufflehog-report.json
+                        exit 1
+                    else
+                        echo "✅ No secrets found by TruffleHog"
+                    fi
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trufflehog-report.json',
+                                     allowEmptyArchive: true
+                }
+            }
+        }
+
+        // ── Stage 3: Build ─────────────────────────────────────
+        stage('Build') {
+            steps {
+                echo '🔨 Building Java application with Maven...'
+                dir('DevOps-Project-03') {
+                    sh 'mvn clean compile -B -q'
+                }
+            }
+        }
+
+        // ── Stage 4: Unit Tests ────────────────────────────────
+        stage('Unit Tests') {
+            steps {
+                echo '🧪 Running unit tests with JaCoCo coverage...'
+                dir('DevOps-Project-03') {
+                    sh 'mvn test jacoco:report -B'
+                }
+            }
+            post {
+                always {
+                    // Publish JUnit test results
+                    junit(
+                        testResults: 'DevOps-Project-03/target/surefire-reports/*.xml',
+                        allowEmptyResults: true
+                    )
+                    // Publish JaCoCo coverage
+                    jacoco(
+                        execPattern: 'DevOps-Project-03/target/jacoco.exec',
+                        classPattern: 'DevOps-Project-03/target/classes',
+                        sourcePattern: 'DevOps-Project-03/src/main/java',
+                        exclusionPattern: '**/*Test*.class',
+                        minimumInstructionCoverage: '70',
+                        minimumBranchCoverage: '60'
+                    )
+                }
+            }
+        }
+
+        // ── Stage 5: SonarQube Analysis ────────────────────────
+        stage('SonarQube Analysis') {
+            steps {
+                echo '📊 Running SonarQube static code analysis...'
+                dir('DevOps-Project-03') {
+                    withSonarQubeEnv("${SONAR_SERVER}") {
+                        withCredentials([string(credentialsId: "${SONAR_TOKEN}",
+                                                variable: 'SONAR_AUTH_TOKEN')]) {
+                            sh """
+                                mvn sonar:sonar -B \
+                                    -Dsonar.projectKey=${SONAR_PROJECT} \
+                                    -Dsonar.projectName="${APP_NAME}" \
+                                    -Dsonar.projectVersion=${APP_VERSION} \
+                                    -Dsonar.login=${SONAR_AUTH_TOKEN} \
+                                    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                                    -Dsonar.java.binaries=target/classes
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Stage 6: SonarQube Quality Gate ────────────────────
+        stage('Quality Gate') {
+            steps {
+                echo '🚦 Waiting for SonarQube Quality Gate result...'
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        // ── Stage 7: Package JAR ───────────────────────────────
+        stage('Package') {
+            steps {
+                echo '📦 Packaging application as JAR...'
+                dir('DevOps-Project-03') {
+                    sh 'mvn package -DskipTests -B'
+                    sh 'ls -lh target/*.jar'
+                }
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'DevOps-Project-03/target/*.jar',
+                                     fingerprint: true
+                }
+            }
+        }
+
+        // ── Stage 8: Docker Build ──────────────────────────────
+        stage('Docker Build') {
+            steps {
+                echo '🐳 Building Docker image...'
+                dir('DevOps-Project-03') {
+                    sh """
+                        docker build \
+                            -f docker/Dockerfile \
+                            -t ${IMAGE_TAGGED} \
+                            -t ${IMAGE_LATEST} \
+                            --label git-commit=${GIT_COMMIT} \
+                            --label build-number=${BUILD_NUMBER} \
+                            --label project=DevOps-Project-03 \
+                            .
+                    """
+                    sh "docker images | grep ${APP_NAME}"
+                }
+            }
+        }
+
+        // ── Stage 9: Trivy Image Scan ──────────────────────────
+        stage('Image Scan - Trivy') {
+            steps {
+                echo '🛡️ Scanning Docker image for vulnerabilities with Trivy...'
+                sh """
+                    # Generate HTML report
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        -v \$WORKSPACE:/reports \
+                        aquasec/trivy:latest image \
+                        --format template \
+                        --template "@contrib/html.tpl" \
+                        --output /reports/trivy-report.html \
+                        --severity HIGH,CRITICAL \
+                        --ignore-unfixed \
+                        ${IMAGE_TAGGED}
+
+                    # Also generate JSON report
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        -v \$WORKSPACE:/reports \
+                        aquasec/trivy:latest image \
+                        --format json \
+                        --output /reports/trivy-report.json \
+                        --severity HIGH,CRITICAL \
+                        --ignore-unfixed \
+                        ${IMAGE_TAGGED}
+
+                    # Fail pipeline if CRITICAL vulns found
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        aquasec/trivy:latest image \
+                        --exit-code 1 \
+                        --severity CRITICAL \
+                        --ignore-unfixed \
+                        ${IMAGE_TAGGED}
+                """
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-report.html, trivy-report.json',
+                                     allowEmptyArchive: true
+                    publishHTML(target: [
+                        allowMissing         : true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll              : true,
+                        reportDir            : '.',
+                        reportFiles          : 'trivy-report.html',
+                        reportName           : 'Trivy Security Report'
+                    ])
+                }
+            }
+        }
+
+        // ── Stage 10: Push to Registry ─────────────────────────
+        stage('Push Image') {
+            steps {
+                echo '📤 Pushing Docker image to registry...'
+                withCredentials([usernamePassword(
+                    credentialsId: "${DOCKER_CREDS}",
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh """
+                        echo \$DOCKER_PASS | docker login ${DOCKER_REGISTRY} \
+                            -u \$DOCKER_USER --password-stdin
+                        docker push ${IMAGE_TAGGED}
+                        docker push ${IMAGE_LATEST}
+                        docker logout ${DOCKER_REGISTRY}
+                    """
+                }
+            }
+        }
+
+        // ── Stage 11: Deploy to OpenShift ─────────────────────
+        stage('Deploy to OpenShift') {
+            steps {
+                echo '🚀 Deploying to OpenShift...'
+                withCredentials([string(
+                    credentialsId: "${OCP_TOKEN}",
+                    variable: 'OCP_SA_TOKEN'
+                )]) {
+                    sh """
+                        # Login to OpenShift
+                        oc login ${OCP_SERVER} \
+                            --token=\$OCP_SA_TOKEN \
+                            --insecure-skip-tls-verify=true
+
+                        # Switch to project
+                        oc project ${OCP_PROJECT} || \
+                            oc new-project ${OCP_PROJECT}
+
+                        # Apply all OpenShift manifests
+                        oc apply -f DevOps-Project-03/openshift/
+
+                        # Update the image (triggers rolling deployment)
+                        oc set image deployment/${OCP_APP_NAME} \
+                            ${OCP_APP_NAME}=${IMAGE_TAGGED} \
+                            -n ${OCP_PROJECT}
+
+                        # Wait for rollout
+                        oc rollout status deployment/${OCP_APP_NAME} \
+                            -n ${OCP_PROJECT} \
+                            --timeout=120s
+
+                        # Show running pods
+                        oc get pods -n ${OCP_PROJECT}
+                    """
+                }
+            }
+        }
+
+        // ── Stage 12: Smoke Test ───────────────────────────────
+        stage('Smoke Test') {
+            steps {
+                echo '🧯 Running smoke test against deployed app...'
+                withCredentials([string(
+                    credentialsId: "${OCP_TOKEN}",
+                    variable: 'OCP_SA_TOKEN'
+                )]) {
+                    sh """
+                        # Get the OpenShift route URL
+                        APP_URL=\$(oc get route ${OCP_APP_NAME} \
+                            -n ${OCP_PROJECT} \
+                            --token=\$OCP_SA_TOKEN \
+                            -o jsonpath='{.spec.host}')
+
+                        echo "Testing: https://\$APP_URL/actuator/health"
+
+                        # Retry health check up to 5 times
+                        for i in \$(seq 1 5); do
+                            STATUS=\$(curl -sk -o /dev/null -w "%{http_code}" \
+                                https://\$APP_URL/actuator/health)
+                            if [ "\$STATUS" = "200" ]; then
+                                echo "✅ Smoke test passed! App is healthy."
+                                exit 0
+                            fi
+                            echo "Attempt \$i failed (status: \$STATUS), retrying in 10s..."
+                            sleep 10
+                        done
+
+                        echo "❌ Smoke test failed after 5 attempts!"
+                        exit 1
+                    """
+                }
+            }
+        }
+
+    } // end stages
+
+    // ==========================================================
+    // POST ACTIONS
+    // ==========================================================
+    post {
+
+        success {
+            echo """
+            ╔══════════════════════════════════════════╗
+            ║  ✅ PIPELINE SUCCEEDED                   ║
+            ║  App: ${APP_NAME}:${IMAGE_TAG}           ║
+            ║  Build: #${BUILD_NUMBER}                 ║
+            ╚══════════════════════════════════════════╝
+            """
+        }
+
+        failure {
+            echo """
+            ╔══════════════════════════════════════════╗
+            ║  ❌ PIPELINE FAILED                      ║
+            ║  Build: #${BUILD_NUMBER}                 ║
+            ║  Check logs above for details            ║
+            ╚══════════════════════════════════════════╝
+            """
+            // Auto-rollback on deployment failure
+            withCredentials([string(
+                credentialsId: "${OCP_TOKEN}",
+                variable: 'OCP_SA_TOKEN'
+            )]) {
+                sh """
+                    oc rollout undo deployment/${OCP_APP_NAME} \
+                        -n ${OCP_PROJECT} \
+                        --token=\$OCP_SA_TOKEN || true
+                    echo "⏪ Rolled back to previous version"
+                """
+            }
+        }
+
+        always {
+            // Clean up local Docker images to save disk space
+            sh """
+                docker rmi ${IMAGE_TAGGED} || true
+                docker rmi ${IMAGE_LATEST} || true
+                docker image prune -f || true
+            """
+            // Clean workspace
+            cleanWs()
+        }
+    }
+
+} // end pipeline

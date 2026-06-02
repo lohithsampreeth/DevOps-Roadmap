@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>DevOps Task Manager</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+<!-- ── Navbar ─────────────────────────────────────────── -->
+<nav class="navbar">
+    <div class="nav-brand">
+        <i class="fa-brands fa-docker"></i> DevOps Task Manager
+    </div>
+    <div class="nav-info">
+        <span class="badge badge-blue"><i class="fa-brands fa-jenkins"></i> Jenkins CI/CD</span>
+        <span class="badge badge-red"><i class="fa-solid fa-shield-halved"></i> SonarQube</span>
+        <span class="badge badge-green"><i class="fa-brands fa-redhat"></i> OpenShift</span>
+    </div>
+</nav>
+
+<!-- ── Stats Cards ────────────────────────────────────── -->
+<div class="container">
+    <div class="stats-grid">
+        <div class="stat-card total">
+            <div class="stat-icon"><i class="fa-solid fa-list-check"></i></div>
+            <div class="stat-info">
+                <h3 th:text="${totalTasks}">0</h3>
+                <p>Total Tasks</p>
+            </div>
+        </div>
+        <div class="stat-card todo">
+            <div class="stat-icon"><i class="fa-solid fa-circle-dot"></i></div>
+            <div class="stat-info">
+                <h3 th:text="${todoCount}">0</h3>
+                <p>To Do</p>
+            </div>
+        </div>
+        <div class="stat-card progress">
+            <div class="stat-icon"><i class="fa-solid fa-spinner"></i></div>
+            <div class="stat-info">
+                <h3 th:text="${inProgressCount}">0</h3>
+                <p>In Progress</p>
+            </div>
+        </div>
+        <div class="stat-card done">
+            <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="stat-info">
+                <h3 th:text="${doneCount}">0</h3>
+                <p>Done</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Add Task Form ─────────────────────────────── -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fa-solid fa-plus"></i> Add New Task</h2>
+        </div>
+        <div class="card-body">
+            <form th:action="@{/tasks}" th:object="${newTask}" method="post" class="task-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Title *</label>
+                        <input type="text" th:field="*{title}" placeholder="Task title..." required/>
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select th:field="*{priority}">
+                            <option value="LOW">🟢 Low</option>
+                            <option value="MEDIUM" selected>🟡 Medium</option>
+                            <option value="HIGH">🔴 High</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select th:field="*{status}">
+                            <option value="TODO">To Do</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="DONE">Done</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label>Description</label>
+                    <textarea th:field="*{description}" placeholder="Task description..." rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i> Add Task
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── Task List ─────────────────────────────────── -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fa-solid fa-table-list"></i> All Tasks</h2>
+        </div>
+        <div class="card-body">
+            <div th:if="${tasks.empty}" class="empty-state">
+                <i class="fa-solid fa-inbox"></i>
+                <p>No tasks yet. Add your first task above!</p>
+            </div>
+
+            <div class="task-grid" th:unless="${tasks.empty}">
+                <div th:each="task : ${tasks}"
+                     th:classappend="${task.status.name()}"
+                     class="task-card">
+
+                    <div class="task-header">
+                        <span th:text="${task.title}" class="task-title"></span>
+                        <span th:text="${task.priority}"
+                              th:classappend="${task.priority.name()}"
+                              class="priority-badge"></span>
+                    </div>
+
+                    <p th:text="${task.description}" class="task-desc"></p>
+
+                    <div class="task-meta">
+                        <span class="status-tag"
+                              th:text="${task.status.name().replace('_',' ')}"
+                              th:classappend="${task.status.name()}"></span>
+                        <span class="task-date"
+                              th:text="${#temporals.format(task.createdAt,'dd MMM yyyy')}"></span>
+                    </div>
+
+                    <div class="task-actions">
+                        <!-- Quick status update -->
+                        <form th:action="@{'/tasks/' + ${task.id} + '/status'}" method="post" style="display:inline">
+                            <select name="status" onchange="this.form.submit()" class="status-select">
+                                <option th:value="TODO"        th:selected="${task.status.name() == 'TODO'}">To Do</option>
+                                <option th:value="IN_PROGRESS" th:selected="${task.status.name() == 'IN_PROGRESS'}">In Progress</option>
+                                <option th:value="DONE"        th:selected="${task.status.name() == 'DONE'}">Done</option>
+                            </select>
+                        </form>
+                        <!-- Delete -->
+                        <form th:action="@{'/tasks/' + ${task.id} + '/delete'}" method="post" style="display:inline"
+                              onsubmit="return confirm('Delete this task?')">
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Pipeline Info Footer ──────────────────────── -->
+    <div class="pipeline-info">
+        <h3><i class="fa-solid fa-diagram-project"></i> CI/CD Pipeline</h3>
+        <div class="pipeline-steps">
+            <div class="step">
+                <i class="fa-brands fa-git-alt"></i>
+                <span>Git Push</span>
+            </div>
+            <i class="fa-solid fa-arrow-right arrow"></i>
+            <div class="step">
+                <i class="fa-brands fa-jenkins"></i>
+                <span>Jenkins Build</span>
+            </div>
+            <i class="fa-solid fa-arrow-right arrow"></i>
+            <div class="step">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>SonarQube</span>
+            </div>
+            <i class="fa-solid fa-arrow-right arrow"></i>
+            <div class="step">
+                <i class="fa-solid fa-shield"></i>
+                <span>Trivy Scan</span>
+            </div>
+            <i class="fa-solid fa-arrow-right arrow"></i>
+            <div class="step">
+                <i class="fa-solid fa-key"></i>
+                <span>TruffleHog</span>
+            </div>
+            <i class="fa-solid fa-arrow-right arrow"></i>
+            <div class="step">
+                <i class="fa-brands fa-docker"></i>
+                <span>Docker Push</span>
+            </div>
+            <i class="fa-solid fa-arrow-right arrow"></i>
+            <div class="step">
+                <i class="fa-brands fa-redhat"></i>
+                <span>OpenShift</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

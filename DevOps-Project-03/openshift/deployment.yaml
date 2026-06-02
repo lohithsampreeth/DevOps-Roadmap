@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-java-app
+  namespace: devops-project-03
+  labels:
+    app: devops-java-app
+    project: devops-project-03
+  annotations:
+    kubernetes.io/change-cause: "Deployed via Jenkins Pipeline"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: devops-java-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0       # Zero downtime
+  template:
+    metadata:
+      labels:
+        app: devops-java-app
+    spec:
+      containers:
+        - name: devops-java-app
+          image: your-registry.io/devops-java-app:latest   # replaced by Jenkins
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+
+          # Resource limits
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          # Load config from ConfigMap + Secrets
+          envFrom:
+            - configMapRef:
+                name: devops-app-config
+            - secretRef:
+                name: devops-app-secret
+
+          # Liveness probe
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+
+          # Readiness probe
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+
+      terminationGracePeriodSeconds: 30

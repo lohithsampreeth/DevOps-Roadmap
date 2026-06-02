@@ -1,0 +1,15 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: task-manager
+  namespace: devops-project-03
+spec:
+  host: task-manager.apps.your-openshift-cluster.com
+  to:
+    kind: Service
+    name: task-manager
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

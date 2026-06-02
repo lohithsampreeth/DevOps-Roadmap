@@ -1,0 +1,81 @@
+# ==============================================
+# Service
+# ==============================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-java-app
+  namespace: devops-project-03
+  labels:
+    app: devops-java-app
+spec:
+  selector:
+    app: devops-java-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+
+---
+# ==============================================
+# OpenShift Route (exposes app externally with TLS)
+# ==============================================
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: devops-java-app
+  namespace: devops-project-03
+spec:
+  to:
+    kind: Service
+    name: devops-java-app
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+---
+# ==============================================
+# ConfigMap
+# ==============================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devops-app-config
+  namespace: devops-project-03
+data:
+  SERVER_PORT: "8080"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+  SPRING_JPA_SHOW_SQL: "false"
+  LOG_LEVEL: "INFO"
+
+---
+# ==============================================
+# HorizontalPodAutoscaler
+# ==============================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: devops-java-app-hpa
+  namespace: devops-project-03
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: devops-java-app
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

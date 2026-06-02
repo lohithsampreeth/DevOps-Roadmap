@@ -1,0 +1,420 @@
+// ============================================================
+// Jenkinsfile - DevOps Project 03
+// End-to-End Java CI/CD Pipeline
+//
+// Stages:
+//  1. Checkout
+//  2. Maven Build & Test
+//  3. JaCoCo Code Coverage
+//  4. TruffleHog Secret Scan
+//  5. SonarQube Analysis
+//  6. SonarQube Quality Gate
+//  7. Trivy File System Scan
+//  8. Docker Build
+//  9. Trivy Docker Image Scan
+// 10. Docker Push to Registry
+// 11. Deploy to OpenShift
+// 12. Smoke Test
+// 13. Notification
+// ============================================================
+
+pipeline {
+
+    agent any
+
+    // ── Tools (configure in Jenkins → Global Tool Config) ──
+    tools {
+        maven 'Maven-3.9'
+        jdk   'JDK-17'
+    }
+
+    // ── Environment Variables ───────────────────────────────
+    environment {
+        // App
+        APP_NAME        = 'devops-task-manager'
+        APP_VERSION     = '1.0.0'
+
+        // Docker
+        DOCKER_REGISTRY = 'docker.io'
+        DOCKER_IMAGE    = "lohithsampreeth/${APP_NAME}"
+        DOCKER_TAG      = "${BUILD_NUMBER}"
+        DOCKER_CREDS    = credentials('dockerhub-credentials')  // Jenkins credential ID
+
+        // SonarQube
+        SONAR_PROJECT   = 'devops-task-manager'
+        SONAR_TOKEN     = credentials('sonar-token')            // Jenkins credential ID
+
+        // OpenShift
+        OC_SERVER       = 'https://api.your-openshift-cluster.com:6443'
+        OC_TOKEN        = credentials('openshift-token')        // Jenkins credential ID
+        OC_PROJECT      = 'devops-project-03'
+        OC_APP          = 'task-manager'
+
+        // Notifications
+        SLACK_CHANNEL   = '#devops-alerts'
+        SLACK_CREDS     = credentials('slack-token')
+    }
+
+    // ── Pipeline Options ────────────────────────────────────
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 45, unit: 'MINUTES')
+        timestamps()
+        disableConcurrentBuilds()
+        ansiColor('xterm')
+    }
+
+    // ── Trigger: Poll SCM every 5 mins ──────────────────────
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+
+    // ============================================================
+    // STAGES
+    // ============================================================
+    stages {
+
+        // ──────────────────────────────────────────────────────
+        // Stage 1: Checkout
+        // ──────────────────────────────────────────────────────
+        stage('Checkout') {
+            steps {
+                echo '📥 Checking out source code...'
+                checkout scm
+                sh 'git log --oneline -5'
+                sh 'ls -la DevOps-Project-03/'
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 2: Maven Build & Unit Tests
+        // ──────────────────────────────────────────────────────
+        stage('Build & Test') {
+            steps {
+                dir('DevOps-Project-03') {
+                    echo '🔨 Building with Maven...'
+                    sh 'mvn clean package -DskipTests=false --batch-mode'
+                }
+            }
+            post {
+                always {
+                    dir('DevOps-Project-03') {
+                        junit '**/target/surefire-reports/*.xml'
+                    }
+                }
+                success {
+                    echo '✅ Build & Tests passed!'
+                    archiveArtifacts artifacts: 'DevOps-Project-03/target/*.jar', fingerprint: true
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 3: JaCoCo Code Coverage
+        // ──────────────────────────────────────────────────────
+        stage('Code Coverage') {
+            steps {
+                dir('DevOps-Project-03') {
+                    echo '📊 Generating JaCoCo coverage report...'
+                    sh 'mvn jacoco:report'
+                }
+            }
+            post {
+                always {
+                    jacoco(
+                        execPattern:          'DevOps-Project-03/target/jacoco.exec',
+                        classPattern:         'DevOps-Project-03/target/classes',
+                        sourcePattern:        'DevOps-Project-03/src/main/java',
+                        exclusionPattern:     '**/*Test*.class',
+                        minimumInstructionCoverage: '70',
+                        minimumBranchCoverage:      '60'
+                    )
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 4: TruffleHog Secret Scanning
+        // Scans entire git history for leaked secrets/API keys
+        // ──────────────────────────────────────────────────────
+        stage('TruffleHog Secret Scan') {
+            steps {
+                echo '🔑 Scanning for secrets with TruffleHog...'
+                sh '''
+                    docker run --rm \
+                        -v "$WORKSPACE:/repo" \
+                        trufflesecurity/trufflehog:latest \
+                        git \
+                        file:///repo \
+                        --only-verified \
+                        --json \
+                        --no-update \
+                        > trufflehog-report.json 2>&1 || true
+
+                    # Fail build if verified secrets found
+                    if grep -q '"verified":true' trufflehog-report.json 2>/dev/null; then
+                        echo "❌ TruffleHog found VERIFIED secrets! Check trufflehog-report.json"
+                        cat trufflehog-report.json
+                        exit 1
+                    else
+                        echo "✅ No verified secrets found!"
+                    fi
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trufflehog-report.json', allowEmptyArchive: true
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 5: SonarQube Analysis
+        // ──────────────────────────────────────────────────────
+        stage('SonarQube Analysis') {
+            steps {
+                dir('DevOps-Project-03') {
+                    echo '🔍 Running SonarQube analysis...'
+                    withSonarQubeEnv('SonarQube') {   // matches Jenkins SonarQube server name
+                        sh '''
+                            mvn sonar:sonar \
+                                -Dsonar.projectKey=${SONAR_PROJECT} \
+                                -Dsonar.projectName="DevOps Task Manager" \
+                                -Dsonar.sources=src/main/java \
+                                -Dsonar.tests=src/test/java \
+                                -Dsonar.java.binaries=target/classes \
+                                -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                                -Dsonar.token=${SONAR_TOKEN} \
+                                --batch-mode
+                        '''
+                    }
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 6: SonarQube Quality Gate
+        // Fails build if code quality below threshold
+        // ──────────────────────────────────────────────────────
+        stage('Quality Gate') {
+            steps {
+                echo '🚦 Waiting for SonarQube Quality Gate...'
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 7: Trivy File System Scan
+        // Scans source code & dependencies for CVEs
+        // ──────────────────────────────────────────────────────
+        stage('Trivy FS Scan') {
+            steps {
+                echo '🛡️ Running Trivy filesystem scan...'
+                sh '''
+                    trivy fs \
+                        --exit-code 0 \
+                        --severity HIGH,CRITICAL \
+                        --format table \
+                        --output trivy-fs-report.txt \
+                        DevOps-Project-03/
+
+                    echo "──── Trivy FS Scan Results ────"
+                    cat trivy-fs-report.txt
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-fs-report.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 8: Docker Build
+        // ──────────────────────────────────────────────────────
+        stage('Docker Build') {
+            steps {
+                dir('DevOps-Project-03') {
+                    echo "🐳 Building Docker image: ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    sh """
+                        docker build \
+                            -f docker/Dockerfile \
+                            -t ${DOCKER_IMAGE}:${DOCKER_TAG} \
+                            -t ${DOCKER_IMAGE}:latest \
+                            --build-arg BUILD_DATE=\$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+                            --build-arg BUILD_VERSION=${APP_VERSION} \
+                            --build-arg GIT_COMMIT=\$(git rev-parse --short HEAD) \
+                            .
+                    """
+                    sh "docker images | grep ${APP_NAME}"
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 9: Trivy Docker Image Scan
+        // Scans built Docker image for OS & app CVEs
+        // ──────────────────────────────────────────────────────
+        stage('Trivy Image Scan') {
+            steps {
+                echo "🛡️ Running Trivy image scan on ${DOCKER_IMAGE}:${DOCKER_TAG}..."
+                sh """
+                    trivy image \
+                        --exit-code 1 \
+                        --severity CRITICAL \
+                        --ignore-unfixed \
+                        --format table \
+                        --output trivy-image-report.txt \
+                        ${DOCKER_IMAGE}:${DOCKER_TAG}
+
+                    echo "──── Trivy Image Scan Results ────"
+                    cat trivy-image-report.txt
+                """
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-image-report.txt', allowEmptyArchive: true
+                }
+                failure {
+                    echo '❌ CRITICAL CVEs found in Docker image! Fix before deploying.'
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 10: Docker Push
+        // ──────────────────────────────────────────────────────
+        stage('Docker Push') {
+            steps {
+                echo "📤 Pushing image to DockerHub..."
+                sh """
+                    echo \$DOCKER_CREDS_PSW | docker login -u \$DOCKER_CREDS_USR --password-stdin
+
+                    docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                    docker push ${DOCKER_IMAGE}:latest
+
+                    docker logout
+                """
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 11: Deploy to OpenShift
+        // ──────────────────────────────────────────────────────
+        stage('Deploy to OpenShift') {
+            steps {
+                echo "🚀 Deploying to OpenShift project: ${OC_PROJECT}..."
+                sh """
+                    # Login to OpenShift
+                    oc login ${OC_SERVER} \
+                        --token=\$OC_TOKEN \
+                        --insecure-skip-tls-verify=true
+
+                    # Switch to project (create if not exists)
+                    oc project ${OC_PROJECT} || oc new-project ${OC_PROJECT}
+
+                    # Apply OpenShift manifests
+                    oc apply -f DevOps-Project-03/k8s/openshift/deployment.yaml
+                    oc apply -f DevOps-Project-03/k8s/openshift/service.yaml
+                    oc apply -f DevOps-Project-03/k8s/openshift/route.yaml
+
+                    # Update image to new build
+                    oc set image deployment/${OC_APP} \
+                        ${OC_APP}=${DOCKER_IMAGE}:${DOCKER_TAG} \
+                        -n ${OC_PROJECT}
+
+                    # Wait for rollout
+                    oc rollout status deployment/${OC_APP} \
+                        -n ${OC_PROJECT} \
+                        --timeout=120s
+
+                    # Show pods
+                    oc get pods -n ${OC_PROJECT}
+
+                    # Get app route/URL
+                    oc get route ${OC_APP} -n ${OC_PROJECT}
+                """
+            }
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Stage 12: Smoke Test
+        // Quick health check after deployment
+        // ──────────────────────────────────────────────────────
+        stage('Smoke Test') {
+            steps {
+                echo '🧪 Running post-deployment smoke test...'
+                sh """
+                    APP_URL=\$(oc get route ${OC_APP} -n ${OC_PROJECT} \
+                        -o jsonpath='{.spec.host}')
+
+                    echo "App URL: http://\$APP_URL"
+
+                    # Wait for app to be ready
+                    sleep 15
+
+                    # Health check
+                    HTTP_CODE=\$(curl -s -o /dev/null -w "%{http_code}" \
+                        http://\$APP_URL/health --max-time 30)
+
+                    if [ "\$HTTP_CODE" = "200" ]; then
+                        echo "✅ Smoke test PASSED! App is healthy (HTTP \$HTTP_CODE)"
+                    else
+                        echo "❌ Smoke test FAILED! Got HTTP \$HTTP_CODE"
+                        exit 1
+                    fi
+                """
+            }
+        }
+    }
+
+    // ============================================================
+    // POST ACTIONS
+    // ============================================================
+    post {
+        always {
+            echo '🧹 Cleaning up Docker images...'
+            sh "docker rmi ${DOCKER_IMAGE}:${DOCKER_TAG} || true"
+            sh "docker rmi ${DOCKER_IMAGE}:latest || true"
+            cleanWs()
+        }
+
+        success {
+            echo '🎉 Pipeline SUCCEEDED!'
+            slackSend(
+                channel: "${SLACK_CHANNEL}",
+                color: 'good',
+                message: """✅ *Pipeline SUCCESS* - ${APP_NAME}
+• Build: #${BUILD_NUMBER}
+• Branch: ${GIT_BRANCH}
+• Commit: ${GIT_COMMIT.take(7)}
+• Image: ${DOCKER_IMAGE}:${DOCKER_TAG}
+• Duration: ${currentBuild.durationString}
+• <${BUILD_URL}|View Build>"""
+            )
+        }
+
+        failure {
+            echo '❌ Pipeline FAILED!'
+            slackSend(
+                channel: "${SLACK_CHANNEL}",
+                color: 'danger',
+                message: """❌ *Pipeline FAILED* - ${APP_NAME}
+• Build: #${BUILD_NUMBER}
+• Branch: ${GIT_BRANCH}
+• Stage: ${currentBuild.result}
+• <${BUILD_URL}|View Build>"""
+            )
+        }
+
+        unstable {
+            slackSend(
+                channel: "${SLACK_CHANNEL}",
+                color: 'warning',
+                message: "⚠️ Pipeline UNSTABLE - ${APP_NAME} #${BUILD_NUMBER}"
+            )
+        }
+    }
+}
