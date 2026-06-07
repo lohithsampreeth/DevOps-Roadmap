@@ -26,7 +26,7 @@ Passionate DevOps Engineer with hands-on experience in:
 | 02 | Automated CI/CD via GitHub Actions  | Terraform, AWS EKS, AWS ECR, VPC, S3, IAM                       | Infrastructure provisioning and automated Kubernetes deployments on AWS              |
 | 03 | Java CI/CD with Jenkins & OpenShift | Jenkins, OpenShift, Maven, Docker, Git                          | Enterprise Java application CI/CD pipeline with automated deployment                 |
 | 04 | ArgoCD Deployment | Jenkins,  Docker, Git  ,ArgoCD                        | CI/CD updates values.yaml with the new image SHA, ArgoCD detects the change and deploys automatically.       |
-| 05 | Java CI/CD with Jenkins & OpenShift | Jenkins,  Docker, Git  ,ArgoCD                        | CI/CD updates values.yaml with the new image SHA, ArgoCD detects the change and deploys automatically.        
+| 05 | Terraform for multi-cloud (AWS EKS + Azure AKS | Jenkins,  Docker, Git  ,ArgoCD  ,Terraform, EKS,AKS   | CI/CD updates values.yaml with the new image SHA, ArgoCD detects the change and deploys automatically.        
 |
 
 
