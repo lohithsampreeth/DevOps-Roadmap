@@ -1,0 +1,135 @@
+version: '3.8'
+
+networks:
+  microservices-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  kafka-data:
+  zookeeper-data:
+  elasticsearch-data:
+  redis-data:
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks: [microservices-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on: [zookeeper]
+    ports: ["9092:9092", "9094:9094"]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks: [microservices-net]
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports: ["8085:8080"]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on: [kafka]
+    networks: [microservices-net]
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: devops
+      POSTGRES_PASSWORD: devops123
+      POSTGRES_DB: orderdb
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    ports: ["5432:5432"]
+    networks: [microservices-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports: ["6379:6379"]
+    networks: [microservices-net]
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes: [elasticsearch-data:/usr/share/elasticsearch/data]
+    ports: ["9200:9200"]
+    networks: [microservices-net]
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: logstash
+    volumes:
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+    ports: ["5044:5044", "5000:5000"]
+    depends_on: [elasticsearch]
+    networks: [microservices-net]
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports: ["5601:5601"]
+    depends_on: [elasticsearch]
+    networks: [microservices-net]
+
+  api-gateway:
+    build:
+      context: services/api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports: ["8080:8080"]
+    depends_on: [kafka, redis]
+    environment: [SPRING_PROFILES_ACTIVE=docker]
+    networks: [microservices-net]
+
+  order-service:
+    build:
+      context: services/order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    depends_on: [postgres, kafka]
+    environment:
+      - DB_USER=devops
+      - DB_PASS=devops123
+      - KAFKA_BROKERS=kafka:9092
+    networks: [microservices-net]
+
+  inventory-service:
+    build:
+      context: services/inventory-service
+      dockerfile: Dockerfile
+    container_name: inventory-service
+    depends_on: [postgres, kafka]
+    environment:
+      - DB_USER=devops
+      - DB_PASS=devops123
+      - KAFKA_BROKERS=kafka:9092
+    networks: [microservices-net]
+
+  notification-service:
+    build:
+      context: services/notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    depends_on: [kafka]
+    environment: [KAFKA_BROKERS=kafka:9092]
+    networks: [microservices-net]

@@ -1,0 +1,102 @@
+# ==============================================
+# Helm Values - inventory-app
+# Override per environment:
+#   helm install ... -f values-prod.yaml
+# ==============================================
+
+replicaCount: 2
+
+image:
+  repository: lohithsampreeth/inventory-manager
+  pullPolicy: Always
+  tag: "latest"   # overridden by CI/CD with git SHA
+
+nameOverride: ""
+fullnameOverride: "inventory-app"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: inventory.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: inventory-tls
+      hosts:
+        - inventory.local
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Vault integration
+vault:
+  enabled: true
+  address: "http://vault:8200"
+  role: "inventory-app"
+  secretPath: "secret/data/inventory-app"
+
+# Prometheus ServiceMonitor
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  path: /actuator/prometheus
+
+# Environment variables
+env:
+  SPRING_PROFILES_ACTIVE: "prod"
+  SERVER_PORT: "8080"
+
+# Liveness & Readiness probes
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 20
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  failureThreshold: 3
+
+# Node selector & tolerations
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - inventory-app
+          topologyKey: kubernetes.io/hostname

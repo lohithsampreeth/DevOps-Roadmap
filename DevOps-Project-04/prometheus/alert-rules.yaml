@@ -1,0 +1,57 @@
+groups:
+  - name: inventory-app-alerts
+    rules:
+
+      # App down
+      - alert: InventoryAppDown
+        expr: up{job="inventory-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Inventory App is DOWN"
+          description: "No inventory-app pods are responding for more than 1 minute."
+
+      # High CPU
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{namespace="inventory-prod"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.pod }}"
+          description: "Pod {{ $labels.pod }} CPU > 80% for 5 minutes."
+
+      # High Memory
+      - alert: HighMemoryUsage
+        expr: |
+          container_memory_usage_bytes{namespace="inventory-prod"}
+          / container_spec_memory_limit_bytes{namespace="inventory-prod"} > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory on {{ $labels.pod }}"
+          description: "Pod {{ $labels.pod }} memory > 85% of limit."
+
+      # Pod restarting
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total{namespace="inventory-prod"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash-looping"
+          description: "Pod {{ $labels.pod }} has restarted multiple times."
+
+      # HTTP 5xx errors (Spring Boot)
+      - alert: HighErrorRate
+        expr: |
+          rate(http_server_requests_seconds_count{status=~"5..",job="inventory-app"}[5m])
+          / rate(http_server_requests_seconds_count{job="inventory-app"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate on inventory-app"
+          description: "More than 5% of requests are returning 5xx errors."

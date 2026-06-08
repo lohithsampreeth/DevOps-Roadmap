@@ -1,0 +1,109 @@
+---
+# roles/common/tasks/main.yml
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install base packages
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - unzip
+      - vim
+      - htop
+      - net-tools
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - software-properties-common
+    state: present
+
+- name: Disable swap (required for K8s)
+  command: swapoff -a
+  changed_when: false
+
+- name: Remove swap from fstab
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1'
+
+- name: Load kernel modules for K8s networking
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - overlay
+    - br_netfilter
+
+- name: Set sysctl params for K8s
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { name: 'net.bridge.bridge-nf-call-iptables',  value: '1' }
+    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+    - { name: 'net.ipv4.ip_forward',                 value: '1' }
+
+- name: Install Helm
+  shell: |
+    curl -fsSL https://get.helm.sh/helm-v{{ helm_version }}-linux-amd64.tar.gz \
+      | tar -xz && mv linux-amd64/helm /usr/local/bin/helm
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Install ArgoCD CLI
+  get_url:
+    url: "https://github.com/argoproj/argo-cd/releases/download/v{{ argocd_version }}/argocd-linux-amd64"
+    dest: /usr/local/bin/argocd
+    mode: '0755'
+
+- name: Install Vault CLI
+  shell: |
+    wget -q https://releases.hashicorp.com/vault/{{ vault_version }}/vault_{{ vault_version }}_linux_amd64.zip
+    unzip -o vault_{{ vault_version }}_linux_amd64.zip -d /usr/local/bin/
+    rm vault_{{ vault_version }}_linux_amd64.zip
+  args:
+    creates: /usr/local/bin/vault
+
+- name: Install Node Exporter
+  shell: |
+    wget -q https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+    tar xf node_exporter-*.tar.gz
+    mv node_exporter-*/node_exporter /usr/local/bin/
+    rm -rf node_exporter-*
+  args:
+    creates: /usr/local/bin/node_exporter
+  tags: node_exporter
+
+- name: Create node_exporter systemd service
+  copy:
+    dest: /etc/systemd/system/node_exporter.service
+    content: |
+      [Unit]
+      Description=Prometheus Node Exporter
+      After=network.target
+
+      [Service]
+      User=nobody
+      ExecStart=/usr/local/bin/node_exporter
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: restart node_exporter
+  tags: node_exporter
+
+- name: Start node_exporter
+  systemd:
+    name: node_exporter
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  tags: node_exporter

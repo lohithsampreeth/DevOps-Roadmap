@@ -1,0 +1,32 @@
+# ==============================================
+# Istio Gateway - Entry point for all traffic
+# Handles TLS termination + routing
+# ==============================================
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: microservices-gateway
+  namespace: devops-p05
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.devops-p05.local"
+        - "api.devops-p05.com"
+      tls:
+        httpsRedirect: true     # Force HTTPS
+
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "api.devops-p05.com"
+      tls:
+        mode: SIMPLE
+        credentialName: devops-p05-tls

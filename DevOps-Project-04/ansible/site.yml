@@ -1,0 +1,52 @@
+---
+# ==============================================
+# Ansible Playbook - DevOps Project 04
+# Provisions on-prem K8s nodes with:
+#   - Docker, kubeadm, kubectl, kubelet
+#   - Vault CLI
+#   - ArgoCD CLI
+#   - Helm
+#   - Node Exporter
+# ==============================================
+
+- name: Configure All Nodes
+  hosts: all
+  become: true
+  gather_facts: true
+  roles:
+    - common
+
+- name: Configure K8s Master + Workers
+  hosts: k8s_nodes
+  become: true
+  roles:
+    - docker
+    - k8s
+
+- name: Install Monitoring Agents
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Install Node Exporter
+      include_role:
+        name: common
+        tasks_from: node_exporter
+
+- name: Post-setup Summary
+  hosts: master
+  become: false
+  tasks:
+
+    - name: Verify cluster is up
+      command: kubectl get nodes
+      register: nodes_output
+      changed_when: false
+
+    - name: Print cluster nodes
+      debug:
+        msg: "{{ nodes_output.stdout_lines }}"
+
+    - name: Apply ArgoCD Application
+      command: kubectl apply -f /opt/devops-project-04/argocd/application.yaml
+      changed_when: false

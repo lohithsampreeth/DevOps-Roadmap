@@ -1,0 +1,29 @@
+---
+# ansible/inventory/group_vars/all.yml
+# Variables shared across all hosts
+
+# K8s
+k8s_version: "1.29.0"
+pod_network_cidr: "10.244.0.0/16"
+
+# Docker
+docker_version: "24.0"
+
+# Helm
+helm_version: "3.14.0"
+
+# ArgoCD
+argocd_version: "2.9.3"
+argocd_namespace: argocd
+
+# Vault
+vault_version: "1.15.0"
+vault_address: "http://vault.vault.svc:8200"
+
+# App
+app_namespace: inventory-prod
+app_image: lohithsampreeth/inventory-manager
+
+# Monitoring
+node_exporter_version: "1.7.0"
+prometheus_namespace: monitoring

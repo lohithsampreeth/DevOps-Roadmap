@@ -1,0 +1,58 @@
+# ==============================================
+# ArgoCD Application - inventory-manager
+# GitOps: ArgoCD watches this repo and auto-syncs
+# any changes to helm/inventory-app to the cluster
+# ==============================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: inventory-manager
+  namespace: argocd
+  labels:
+    project: devops-project-04
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # cleanup on delete
+spec:
+  project: default
+
+  # ── Source: your Git repo ──────────────────────────────
+  source:
+    repoURL: https://github.com/lohithsampreeth/DevOps-Roadmap.git
+    targetRevision: main
+    path: DevOps-Project-04/helm/inventory-app
+    helm:
+      valueFiles:
+        - values.yaml
+      # Override image tag on each deploy (set by CI/CD)
+      parameters:
+        - name: image.tag
+          value: latest   # CI/CD overrides this with git SHA
+
+  # ── Destination: on-prem Kubernetes cluster ────────────
+  destination:
+    server: https://kubernetes.default.svc   # in-cluster
+    namespace: inventory-prod
+
+  # ── Sync Policy: auto-sync on git change ──────────────
+  syncPolicy:
+    automated:
+      prune: true        # remove resources deleted from git
+      selfHeal: true     # revert manual cluster changes
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # ── Health Checks ─────────────────────────────────────
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas   # ignore HPA-managed replica count

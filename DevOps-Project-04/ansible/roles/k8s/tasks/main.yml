@@ -1,0 +1,113 @@
+---
+# roles/k8s/tasks/main.yml
+# Installs kubelet, kubeadm, kubectl
+# Initializes master, joins workers
+
+- name: Add Kubernetes apt key
+  apt_key:
+    url: https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key
+    state: present
+
+- name: Add Kubernetes apt repository
+  apt_repository:
+    repo: "deb https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /"
+    state: present
+    filename: kubernetes
+
+- name: Install kubeadm, kubelet, kubectl
+  apt:
+    name:
+      - "kubelet={{ k8s_version }}-*"
+      - "kubeadm={{ k8s_version }}-*"
+      - "kubectl={{ k8s_version }}-*"
+    state: present
+    update_cache: yes
+
+- name: Hold K8s packages at current version
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Enable kubelet
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: started
+
+# ── Master node only ───────────────────────────────────
+- name: Initialize K8s master (master only)
+  command: >
+    kubeadm init
+      --pod-network-cidr={{ pod_network_cidr }}
+      --ignore-preflight-errors=all
+  args:
+    creates: /etc/kubernetes/admin.conf
+  when: "'master' in group_names"
+  register: kubeadm_init
+
+- name: Setup kubectl for ubuntu user
+  block:
+    - file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+    - copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+        owner: ubuntu
+        group: ubuntu
+  when: "'master' in group_names"
+
+- name: Install Flannel CNI (master only)
+  become: false
+  command: kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+  when: "'master' in group_names"
+
+- name: Get join command from master
+  command: kubeadm token create --print-join-command
+  register: join_command
+  when: "'master' in group_names"
+  changed_when: false
+
+- name: Set join command as fact
+  set_fact:
+    k8s_join_command: "{{ join_command.stdout }}"
+  when: "'master' in group_names"
+
+- name: Join workers to cluster
+  command: "{{ hostvars[groups['master'][0]]['k8s_join_command'] }}"
+  args:
+    creates: /etc/kubernetes/kubelet.conf
+  when: "'workers' in group_names"
+
+# ── ArgoCD install (master only) ──────────────────────
+- name: Create ArgoCD namespace
+  become: false
+  command: kubectl create namespace {{ argocd_namespace }}
+  ignore_errors: yes
+  when: "'master' in group_names"
+
+- name: Install ArgoCD
+  become: false
+  command: >
+    kubectl apply -n {{ argocd_namespace }}
+    -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+  when: "'master' in group_names"
+
+# ── Vault install (master only) ───────────────────────
+- name: Deploy Vault to K8s
+  become: false
+  command: kubectl apply -f /opt/devops-project-04/vault/vault-k8s.yaml
+  when: "'master' in group_names"
+
+# ── Monitoring stack (master only) ────────────────────
+- name: Deploy Prometheus + Grafana
+  become: false
+  command: kubectl apply -f /opt/devops-project-04/prometheus/monitoring-stack.yaml
+  when: "'master' in group_names"

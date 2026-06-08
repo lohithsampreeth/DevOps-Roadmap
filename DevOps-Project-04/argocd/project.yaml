@@ -1,0 +1,49 @@
+# ==============================================
+# ArgoCD AppProject - devops-project-04
+# Restricts what ArgoCD can deploy and where
+# ==============================================
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: devops-project-04
+  namespace: argocd
+spec:
+  description: "DevOps Project 04 - Inventory Manager GitOps"
+
+  # Allowed source repos
+  sourceRepos:
+    - https://github.com/lohithsampreeth/DevOps-Roadmap.git
+
+  # Allowed destination clusters and namespaces
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: inventory-prod
+    - server: https://kubernetes.default.svc
+      namespace: inventory-staging
+
+  # Allowed Kubernetes resource kinds
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+
+  namespaceResourceWhitelist:
+    - group: 'apps'
+      kind: Deployment
+    - group: ''
+      kind: Service
+    - group: 'networking.k8s.io'
+      kind: Ingress
+    - group: 'autoscaling'
+      kind: HorizontalPodAutoscaler
+    - group: 'monitoring.coreos.com'
+      kind: ServiceMonitor
+
+  # RBAC roles
+  roles:
+    - name: developer
+      description: Can sync and view apps
+      policies:
+        - p, proj:devops-project-04:developer, applications, sync, devops-project-04/*, allow
+        - p, proj:devops-project-04:developer, applications, get,  devops-project-04/*, allow
+      groups:
+        - devops-team

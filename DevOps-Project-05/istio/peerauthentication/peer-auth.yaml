@@ -1,0 +1,28 @@
+# ==============================================
+# PeerAuthentication - enforce mTLS namespace-wide
+# All service-to-service traffic encrypted
+# ==============================================
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default-mtls
+  namespace: devops-p05
+spec:
+  mtls:
+    mode: STRICT      # All traffic must use mTLS
+---
+# Allow health check probes (unencrypted from kubelet)
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: api-gateway-permissive
+  namespace: devops-p05
+spec:
+  selector:
+    matchLabels:
+      app: api-gateway
+  mtls:
+    mode: PERMISSIVE   # Allow both mTLS and plain for health checks
+  portLevelMtls:
+    8080:
+      mode: PERMISSIVE

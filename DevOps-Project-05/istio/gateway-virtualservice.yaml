@@ -1,0 +1,103 @@
+# ==============================================
+# Istio Gateway + VirtualServices
+# Routes external traffic into the mesh
+# ==============================================
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: microservices-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "api.devops-project05.com"
+      tls:
+        httpsRedirect: true
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: api-tls-cert
+      hosts:
+        - "api.devops-project05.com"
+---
+# VirtualService - order-service
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: order-service-vs
+  namespace: microservices
+spec:
+  hosts:
+    - "api.devops-project05.com"
+    - order-service
+  gateways:
+    - istio-system/microservices-gateway
+    - mesh
+  http:
+    # Canary: 90% stable / 10% canary
+    - match:
+        - uri:
+            prefix: /api/orders
+      route:
+        - destination:
+            host: order-service
+            subset: stable
+            port:
+              number: 80
+          weight: 90
+        - destination:
+            host: order-service
+            subset: canary
+            port:
+              number: 80
+          weight: 10
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: 5xx,reset,connect-failure
+      timeout: 10s
+      fault:
+        # Simulate 1% error rate for chaos testing
+        abort:
+          httpStatus: 503
+          percentage:
+            value: 0.0   # set to 1.0 to enable fault injection
+---
+# VirtualService - product-service
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: product-service-vs
+  namespace: microservices
+spec:
+  hosts:
+    - "api.devops-project05.com"
+    - product-service
+  gateways:
+    - istio-system/microservices-gateway
+    - mesh
+  http:
+    - match:
+        - uri:
+            prefix: /api/products
+      route:
+        - destination:
+            host: product-service
+            subset: stable
+            port:
+              number: 80
+          weight: 100
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+      timeout: 10s

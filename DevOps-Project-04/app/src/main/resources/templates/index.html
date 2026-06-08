@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inventory Manager | DevOps Project 04</title>
+  <link rel="stylesheet" th:href="@{/css/style.css}"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <i class="fa-solid fa-boxes-stacked"></i> Inventory Manager
+  </div>
+  <div class="nav-badges">
+    <span class="badge blue"><i class="fa-solid fa-infinity"></i> ArgoCD GitOps</span>
+    <span class="badge purple"><i class="fa-solid fa-helmet-safety"></i> Helm</span>
+    <span class="badge orange"><i class="fa-solid fa-lock"></i> Vault</span>
+    <span class="badge green"><i class="fa-solid fa-chart-line"></i> Prometheus</span>
+  </div>
+  <form th:action="@{/products/search}" method="get" class="search-form">
+    <input type="text" name="q" placeholder="Search products..."
+           th:value="${searchQuery}" class="search-input"/>
+    <button type="submit" class="btn-search"><i class="fa-solid fa-search"></i></button>
+  </form>
+</nav>
+
+<div class="container">
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+      <div><h3 th:text="${totalProducts}">0</h3><p>Total Products</p></div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <div><h3 th:text="${inStock}">0</h3><p>In Stock</p></div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div><h3 th:text="${lowStock}">0</h3><p>Low Stock</p></div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+      <div><h3 th:text="${outOfStock}">0</h3><p>Out of Stock</p></div>
+    </div>
+  </div>
+
+  <!-- Add Product Form -->
+  <div class="card">
+    <div class="card-header">
+      <h2><i class="fa-solid fa-plus"></i> Add Product</h2>
+    </div>
+    <div class="card-body">
+      <form th:action="@{/products}" th:object="${newProduct}" method="post" class="product-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Product Name *</label>
+            <input type="text" th:field="*{name}" placeholder="e.g. MacBook Pro" required/>
+          </div>
+          <div class="form-group">
+            <label>SKU</label>
+            <input type="text" th:field="*{sku}" placeholder="e.g. MBP-2024-001"/>
+          </div>
+          <div class="form-group">
+            <label>Category *</label>
+            <input type="text" th:field="*{category}" placeholder="e.g. Electronics" required/>
+          </div>
+          <div class="form-group">
+            <label>Price (₹) *</label>
+            <input type="number" th:field="*{price}" placeholder="0.00" step="0.01" min="0" required/>
+          </div>
+          <div class="form-group">
+            <label>Quantity *</label>
+            <input type="number" th:field="*{quantity}" placeholder="0" min="0" required/>
+          </div>
+        </div>
+        <div class="form-group full">
+          <label>Description</label>
+          <textarea th:field="*{description}" placeholder="Product description..." rows="2"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-plus"></i> Add Product
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Product Table -->
+  <div class="card">
+    <div class="card-header">
+      <h2>
+        <i class="fa-solid fa-table"></i> Products
+        <span th:if="${searchQuery}" class="search-tag">
+          Results for "<span th:text="${searchQuery}"></span>"
+          <a th:href="@{/}" class="clear-search">✕</a>
+        </span>
+      </h2>
+    </div>
+    <div class="card-body">
+      <div th:if="${products.empty}" class="empty-state">
+        <i class="fa-solid fa-box-open"></i>
+        <p>No products found. Add your first product above!</p>
+      </div>
+      <div class="table-wrapper" th:unless="${products.empty}">
+        <table class="product-table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Price</th>
+              <th>Quantity</th>
+              <th>Status</th>
+              <th>Updated</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="p : ${products}">
+              <td><code th:text="${p.sku ?: '-'}"></code></td>
+              <td>
+                <div class="product-name" th:text="${p.name}"></div>
+                <div class="product-desc" th:text="${p.description}"></div>
+              </td>
+              <td><span class="category-tag" th:text="${p.category}"></span></td>
+              <td class="price" th:text="'₹' + ${p.price}"></td>
+              <td class="qty" th:text="${p.quantity}"></td>
+              <td>
+                <span class="status-badge"
+                      th:classappend="${p.status.name()}"
+                      th:text="${p.status.name().replace('_',' ')}">
+                </span>
+              </td>
+              <td class="date" th:text="${#temporals.format(p.updatedAt,'dd MMM yy')}"></td>
+              <td>
+                <form th:action="@{'/products/' + ${p.id} + '/delete'}" method="post"
+                      onsubmit="return confirm('Delete this product?')">
+                  <button type="submit" class="btn btn-danger btn-sm">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </form>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pipeline Info -->
+  <div class="pipeline-card">
+    <h3><i class="fa-solid fa-diagram-project"></i> GitOps Pipeline — Project 04</h3>
+    <div class="pipeline-flow">
+      <div class="pip-step"><i class="fa-brands fa-git-alt"></i><span>Git Push</span></div>
+      <span class="arr">→</span>
+      <div class="pip-step"><i class="fa-brands fa-github"></i><span>GitHub Actions</span></div>
+      <span class="arr">→</span>
+      <div class="pip-step"><i class="fa-brands fa-docker"></i><span>Docker Build</span></div>
+      <span class="arr">→</span>
+      <div class="pip-step"><i class="fa-solid fa-shield"></i><span>Trivy Scan</span></div>
+      <span class="arr">→</span>
+      <div class="pip-step"><i class="fa-solid fa-code-branch"></i><span>Update Helm</span></div>
+      <span class="arr">→</span>
+      <div class="pip-step"><i class="fa-solid fa-infinity"></i><span>ArgoCD Sync</span></div>
+      <span class="arr">→</span>
+      <div class="pip-step"><i class="fa-solid fa-server"></i><span>K8s Deploy</span></div>
+      <span class="arr">→</span>
+      <div class="pip-step"><i class="fa-solid fa-chart-line"></i><span>Prometheus</span></div>
+    </div>
+  </div>
+
+</div>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

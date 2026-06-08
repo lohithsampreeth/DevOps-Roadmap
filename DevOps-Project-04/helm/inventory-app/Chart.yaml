@@ -1,0 +1,9 @@
+apiVersion: v2
+name: inventory-app
+description: Helm chart for Inventory Manager - DevOps Project 04
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: lohithsampreeth
+    url: https://github.com/lohithsampreeth
